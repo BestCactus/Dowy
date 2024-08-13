@@ -1,3 +1,3 @@
 @echo off
 
-python C:\CustomScripts\youtubeDownload.py %*
+python C:\CustomScripts\youtubeDownload.py %CD% %*

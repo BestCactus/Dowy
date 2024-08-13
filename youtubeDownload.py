@@ -1,14 +1,29 @@
 from pytubefix import YouTube
 import sys
+import os
 import ffmpeg
+import re
 
-if len(sys.argv) > 1:
-   userUrl = sys.argv[1]
+currDirectory = sys.argv[1]
+
+print('Current Directory: ', currDirectory)
+
+if len(sys.argv) > 2:
+   isYoutubePrefix = bool(re.search("^https://www.youtube.com/watch?v=", sys.argv[2]))
+   if isYoutubePrefix:
+        userUrl = sys.argv[2]
+   else:
+        userUrl = f'https://www.youtube.com/watch?v={sys.argv[2]}'
 else:
     userUrl = input('Please enter URL of desired video: \t')
 
-
 video = YouTube(userUrl)
+
+def on_progress(stream, chunk, bytes_remaining):
+    progress = round((1 - bytes_remaining / stream.filesize) * 100,2)
+    print(f'Progress: {progress}%  ', f"Megabytes remaining: {round(bytes_remaining/1000000, 2)}MB")
+
+video.register_on_progress_callback(on_progress)
 
 print('\t')
 print('Title:   ', video.title)
@@ -18,9 +33,6 @@ print('_________________________________________________________________________
 print('\t')
 print('\t')
 
-
-print(video.streams.filter(progressive=True).all())
-
 def printWithSpace(msg):
     print('\t')
     print(msg)
@@ -29,7 +41,7 @@ def printWithSpace(msg):
 def setVideoForRender(resolution):
     if video.streams.filter(res=resolution):
         global videoForRender
-        videoForRender = video.streams.filter(res=resolution).filter(progressive=True).first()
+        videoForRender = video.streams.filter(res=resolution).first()
         global isResolutionValid
         isResolutionValid = True
         return True
@@ -60,8 +72,8 @@ print('\t')
 
 videoForRender = None
 
-if len(sys.argv) > 2:
-    userResolution = sys.argv[2]
+if len(sys.argv) > 3:
+    userResolution = sys.argv[3]
     isUserResolutionSet = True
 else:
     isUserResolutionSet = False
@@ -83,20 +95,59 @@ while isResolutionValid == False:
         if not videoForRender:
             printWithSpace('Invalid resolution')
             userResolution = None
+            isUserResolutionSet = False
 
-if len(sys.argv) > 3:
-    directoryArgument = sys.argv[3].lower()
+scriptDir = os.path.dirname(os.path.abspath(__file__))
+tempFolderPath = os.path.join(scriptDir, "Temp")
+
+printWithSpace('Video download started')
+
+if len(sys.argv) > 4:
+    directoryArgument = sys.argv[4].lower()
     if directoryArgument == 'downloads' or directoryArgument == 'down':
-        videoForRender.download("D:/STAHOVÁNÍ")
+        videoDestination = "D:/STAHOVÁNÍ"
+        videoForRender.download(tempFolderPath, 'video.mp4')
     elif directoryArgument == 'desktop' or directoryArgument == "desk":
-        videoForRender.download("C:/Users/vojta/OneDrive/Plocha")
+        videoDestination = "C:/Users/vojta/OneDrive/Plocha"
+        videoForRender.download(tempFolderPath, 'video.mp4')
     elif directoryArgument == 'pictures' or directoryArgument == 'pic':
-        videoForRender.download("C:/Users/vojta/OneDrive/Obrázky")
+        videoDestination = "C:/Users/vojta/OneDrive/Obrázky"
+        videoForRender.download(tempFolderPath, 'video.mp4')
     elif directoryArgument == 'videos' or directoryArgument == 'vid':
-        videoForRender.download("C:/Users/vojta/Videos")
+        videoDestination = "C:/Users/vojta/Videos"
+        videoForRender.download(tempFolderPath, 'video.mp4')
     elif directoryArgument == 'music' or directoryArgument == 'mus':
-        videoForRender.download("C:/Users/vojta/Music")
+        videoDestination = "C:/Users/vojta/Music"
+        videoForRender.download(tempFolderPath, 'video.mp4')
     else:
-        videoForRender.download(directoryArgument)
+        videoDestination = directoryArgument
+        videoForRender.download(tempFolderPath, 'video.mp4')
 else:
-    videoForRender.download("D:/STAHOVÁNÍ")
+    videoDestination = currDirectory
+    videoForRender.download(tempFolderPath, 'video.mp4')
+
+printWithSpace('Video download completed')
+print('Audio download started')
+print('\t')
+
+audio = video.streams.filter(only_audio=True).order_by('abr').last()
+audio.download(tempFolderPath, 'audio.opus')
+
+printWithSpace('Audio download completed')
+
+inputVideo = ffmpeg.input("C:/CustomScripts/Temp/video.mp4")
+inputAudio = ffmpeg.input('C:/CustomScripts/Temp/audio.opus')
+
+
+outputFileName = video.title.lower()
+outputFileName = re.sub(r'[<>:"/\\|?*!,]', '', outputFileName)
+outputFileName = re.sub(r'\.+$', '', outputFileName)
+outputFileName = re.sub(r'\s+', '_', outputFileName)
+
+output = ffmpeg.output(inputVideo, inputAudio, f'{videoDestination}/{outputFileName}.mp4', vcodec='copy', acodec='aac')
+
+
+output.run()
+
+os.remove(f'{tempFolderPath}\\video.mp4')
+os.remove(f'{tempFolderPath}\\audio.opus')
