@@ -4,6 +4,8 @@ import os
 import ffmpeg
 import re
 import signal
+import userpaths
+import win32clipboard
 
 def signal_handler(sig, frame):
     print()
@@ -19,13 +21,9 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 def print_local_file_link(file_path, display_text):
-    # Replace backslashes with forward slashes for the URL format
     formatted_path = file_path.replace('\\', '/')
-    # Convert to absolute path
     abs_path = os.path.abspath(formatted_path)
-    # Format the path as a file URL
     file_url = f"file:///{abs_path}"
-    # Print the link
     print(f"\033]8;;{file_url}\033\\{display_text}\033]8;;\033\\")
 
 
@@ -39,29 +37,34 @@ for argument in sys.argv:
     if i < 2:
         i = i + 1
         continue
-    link_regex = r'^https://www\.youtube\.com/watch\?v='
+    link_regex = r'^https://www\.youtube\.com/watch\?v=|https://youtu\.be/|c'
     resolution_regex = "[0-9]+p|4k|2k|full hd|fhd|hd|only audio|audio"
     dir_regex = "[A-Z]:|down|desk|pic|vid|mus"
-    if bool(re.search(link_regex, argument)):
+    if bool(re.search(link_regex, argument.lower())):
         link_argument = argument
     elif bool(re.search(resolution_regex, argument.lower())):
         resolution_argument = argument
-    elif bool(re.search(dir_regex, argument)):
+    elif bool(re.search(dir_regex, argument.lower())):
         dir_argument = argument.lower()
     i = i + 1
-    
-
-print('link arg', link_argument)
-print('resolution arg', resolution_argument)
-print('dir arg', dir_argument)
-
 
 if link_argument:
-   isYoutubePrefix = bool(re.search(r'^https://www\.youtube\.com/watch\?v=', link_argument))
-   if isYoutubePrefix:
+    isYoutubePrefix = bool(re.search(r'^https://www\.youtube\.com/watch\?v=|https://youtu\.be/', link_argument))
+    is_clipboard_flag = bool(re.search(r'c', link_argument))
+    if isYoutubePrefix:
         userUrl = link_argument
-   else:
+    elif is_clipboard_flag:
+        # accessing clipboard
+        win32clipboard.OpenClipboard()
+        try:
+            userUrl = win32clipboard.GetClipboardData()
+        except TypeError:
+            userUrl = None
+            print('Cannot access clipboard, please try again')
+        win32clipboard.CloseClipboard()
+    else:
         userUrl = f'https://www.youtube.com/watch?v={link_argument}'
+       
 else:
     userUrl = input('Please enter URL of desired video: \t')
 
@@ -74,18 +77,36 @@ def on_progress(stream, chunk, bytes_remaining):
 
 video.register_on_progress_callback(on_progress)
 
-print('\t')
+print('')
 print('Title:   ', video.title)
 print('Author:  ', video.author)
-print('Length:  ', video.length, 's')
+
+if video.length >= 3600:
+    length_hours = video.length // 3600
+    length_extra_minutes = video.length % 3600 // 60
+    length_extra_seconds = video.length % 60
+    if not length_extra_minutes == 0 and not length_extra_seconds == 0:
+        print('Length:   ', length_hours, 'h ', length_extra_minutes, 'min ', length_extra_seconds, 's ', sep='')
+    elif not length_extra_minutes == 0:
+        print('Length:   ', length_hours, 'h ', length_extra_minutes, 'min ', sep='')
+    else: 
+        print('Length:   ', length_hours, 'h ', sep='')
+elif video.length >= 60:
+    length_minutes = video.length // 60
+    length_extra_seconds = video.length % 60
+    if not length_extra_seconds == 0:
+        print('Length:   ', length_minutes, 'min ', length_extra_seconds, 's', sep='')
+    else:
+        print('Length:   ', length_minutes,'min', sep='')
+
 print('_____________________________________________________________________________________________')
-print('\t')
-print('\t')
+print('')
+print('')
 
 def printWithSpace(msg):
-    print('\t')
+    print('')
     print(msg)
-    print('\t')
+    print('')
 
 def setVideoForRender(resolution):
     if video.streams.filter(res=resolution):
@@ -151,21 +172,32 @@ while isResolutionValid == False:
 scriptDir = os.path.dirname(os.path.abspath(__file__))
 tempFolderPath = os.path.join(scriptDir, "Temp")
 
+my_downloads = userpaths.get_downloads()
+my_desktop = userpaths.get_desktop()
+my_pictures = userpaths.get_my_pictures()
+my_videos = userpaths.get_my_videos()
+my_music = userpaths.get_my_music()
+my_documents = userpaths.get_my_documents()
+
+
 if dir_argument:
-    if dir_argument == 'downloads' or dir_argument == 'down':
-        videoDestination = "D:/STAHOVÁNÍ"
-    elif dir_argument == 'desktop' or dir_argument == "desk":
-        videoDestination = "C:/Users/vojta/OneDrive/Plocha"
-    elif dir_argument == 'pictures' or dir_argument == 'pic':
-        videoDestination = "C:/Users/vojta/OneDrive/Obrázky"
-    elif dir_argument == 'videos' or dir_argument == 'vid':
-        videoDestination = "C:/Users/vojta/Videos"
-    elif dir_argument == 'music' or dir_argument == 'mus':
-        videoDestination = "C:/Users/vojta/Music"
+    if bool(re.match('downloads?|my ?downloads?|down', dir_argument)):
+        videoDestination = my_downloads
+    elif bool(re.match('desktop|my ?desktop|desk', dir_argument)):
+        videoDestination = my_desktop
+    elif bool(re.match('pictures?|my ?pictures?|pics|pic', dir_argument)):
+        videoDestination = my_pictures
+    elif bool(re.match('videos|my ?videos|vid', dir_argument)):
+        videoDestination = my_videos
+    elif bool(re.match('music|my ?music|mus', dir_argument)):
+        videoDestination = my_music
+    elif bool(re.match('documents|docs|doc', dir_argument)):
+        videoDestination = my_documents
     else:
         videoDestination = dir_argument
 else:
     videoDestination = currDirectory
+
 
 if not videoForRender == 'no_video':
     printWithSpace('Video download started')
