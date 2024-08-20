@@ -1,5 +1,14 @@
-TODO
+# DOWY - Local 4K YouTube Downloader for PowerShell
 
-# DOWY - Local YouTube Downloader for PowerShell
+High quality YouTube downloader for Windows CMD and PowerShell. Download any video with up to 4K resolution and 256kbps audio bitrate.
+Lots of customization, handy features and
 
-IMPORTANT: When pasting the YouTube link, there mustn't be any `&` characters. PowerShell treats them as separators between commands. This would result in two commands and break the arguments system. To counter this, use quotation marks `' '` or `" "` It is worth noting, that YouTube doesn't have this character in the identifier, TODO.
+IMPORTANT: When pasting the YouTube link, it is RECOMMENDED to use quotation marks(`''`). If there are any `&` characters, it will break. That's how PowerShell works, there's nothing I can do about it.
+
+## Install:
+
+    Currently little complicated
+
+## Usage:
+
+## License:

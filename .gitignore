@@ -1,1 +1,4 @@
 dowy_custom_folders.pkl
+build/
+dist/
+dowy.egg-info/
