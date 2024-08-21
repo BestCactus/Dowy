@@ -7,13 +7,14 @@ import userpaths
 import win32clipboard
 import pickle
 from tabulate import tabulate
+from shutil import which
 def main():
+    os.system('')
     # Print colors strings
     print_red = '\033[31m'
     print_green = '\033[32m'
     print_yellow = '\033[33m'
     print_blue = '\033[1;34m'
-    print_magenta = '\033[35m'
     print_cyan = '\033[36m'
     print_purple = '\033[1;35m'
 
@@ -21,7 +22,6 @@ def main():
     print_underline = '\033[4;37m'
 
     print_reset = '\033[0m'
-
 
     pickle_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dowy_custom_folders.pkl')
 
@@ -80,14 +80,18 @@ def main():
         update_pickle_file()
         return True
 
-    def delete_pickle_key(key):
-        if key in pickle_data:
-            del pickle_data[key]
-        else:
-            return False
-        update_pickle_file()
-        return True
-
+    def delete_pickle_key(arg):
+        is_key_found = False
+        for key in pickle_data:
+            if arg == key.replace('?', ''):
+                is_key_found = True
+                key_to_remove = key
+        if is_key_found:
+            del pickle_data[key_to_remove]
+            update_pickle_file()
+            return True
+        return False
+            
     # Clickable link to console
     def print_local_file_link(file_path, display_text):
         formatted_path = file_path.replace('\\', '/')
@@ -111,16 +115,16 @@ def main():
             ['<youtube_link>', "It is recommended to use quotation marks around the YouTube link"], 
             ['-c, c', 'Use clipboard as the youtube link'],
             ['<resolution>', "Resolution of the video, shortcuts like 'fhd' or '4k' can be used. 'audio' will render only audio"], 
-            ['<destination>', 'Disk destination for the video, shortcuts set up by Custom Folders settings, for more info type: dowy -f']
+            ['<destination>', 'Disk destination for the video, shortcuts set up by Custom keywords settings, for more info type: dowy -f']
         ]
         print(tabulate(rows, headers=headers))
         print('\n\n')
-        print('CUSTOM FOLDERS')
+        print('CUSTOM KEYWORDS')
         print()
         custom_folders_rows = [
-            ['-f', 'Custom Folders settings, for more info type: dowy -f'], 
+            ['-f', 'Custom keywords settings, for more info type: dowy -f'], 
             ['-rmf', 'Remove Custom Folder keyword, for more info type: dowy -rmf'], 
-            ['-rstf', 'Reset Custom Folders settings, default values will be restored']
+            ['-rstf', 'Reset Custom keywords settings, default values will be restored']
         ]
         print(tabulate(custom_folders_rows, headers=headers))
         print('\n\n')
@@ -142,6 +146,7 @@ def main():
         print(print_blue + 'Example:' + print_reset, 'dowy c 4k down - Downloading video from clipboard in 4K to downloads folder')
         print()
         print(print_blue + "Usage:" + print_reset, f"  dowy {print_red}'{print_reset}<youtube_link>{print_red}'{print_reset} <resolution> <destination>")
+        print()
 
     def print_pickle_file():
         update_pickle_variable()
@@ -156,20 +161,20 @@ def main():
 
         # Help page
     try:
-        if re.search('help|-h|--help|-help', sys.argv[2]):
+        if re.search('help|-h|--help|-help', sys.argv[1]):
             help_page()
             sys.exit(0)
-        # Custom folders settings page
-        elif re.search('-f', sys.argv[2]):
+        # Custom keywords settings page
+        elif re.search('-f', sys.argv[1]):
             try:
-                if sys.argv[3] and sys.argv[4]:
-                    if add_or_change_pickle_data(sys.argv[3], sys.argv[4]):
-                        print_with_space(print_green + f'Change/Add of key: {sys.argv[3]} to: {sys.argv[4]} was successfull' + print_reset)
+                if sys.argv[2] and sys.argv[3]:
+                    if add_or_change_pickle_data(sys.argv[2], sys.argv[3]):
+                        print_with_space(print_green + f'Change/Add of key: {sys.argv[2]} to: {sys.argv[3]} was successfull' + print_reset)
                     else:
                         print_with_space(print_red + 'Invalid characters found in key' + '\033[0m\nOnly letters and numbers are allowed')
             except Exception as e:
                 print()
-                print('CUSTOM FOLDERS')
+                print('CUSTOM KEYWORDS')
                 print('    You can set a shortcut for any directory to use when downloading.')
                 print('    When specified keyword is typed as one of the arguments, the set path will be used to download the video to.')
                 print('    To change already existing keywords to different paths.')
@@ -182,22 +187,23 @@ def main():
                 print( print_yellow + 'Usage:  ' + print_reset, "dowy -f <keyword> ", print_red + "'" + print_reset, "<path>", print_red + "'" + print_reset, '  - NO SPACES, PATH IN QUOTATIONS', sep='')
             sys.exit(0)
         # Remove folder settings page
-        elif re.search('-rmf', sys.argv[2]):
+        elif re.search('-rmf', sys.argv[1]):
             try:
-                if sys.argv[3]:
-                    if delete_pickle_key(sys.argv[3]):
+                if sys.argv[2]:
+                    if delete_pickle_key(sys.argv[2]):
                         print_with_space(print_green + 'File removed successfully' + print_reset)
                     else:
                         print_with_space(print_red + 'No such key found' + print_reset)
             except Exception as e:  
                 print_pickle_file()
-                print('Remove keyword from custom folders')
+                print('Remove keyword from custom keywords')
                 print(f"For more information, type {print_cyan}'dowy -f'{print_reset}")
                 print( print_yellow + 'Usage:' + print_reset, 'dowy -rmf <keyword>')
+                print('Error:', e)
             sys.exit(0)
-        elif re.search('-rstf', sys.argv[2]):
+        elif re.search('-rstf', sys.argv[1]):
                 while True:
-                    print('Are you sure you want to reset custom folders?')
+                    print('Are you sure you want to reset custom keywords?')
                     confirmation_input = input('    (Y/N)? ').lower()
                     if confirmation_input =='y':
                         reset_pickle_file()
@@ -215,36 +221,37 @@ def main():
         sys.exit(0)
 
     # Finding args with regex, so users can put them in whatever order
-    curr_directory = sys.argv[1] # arg given by .bat file
+    curr_directory = os.getcwd()
     link_argument = None
     resolution_argument = None
     dir_argument = None
     i = 0
     for argument in sys.argv:
-        # To not count first arg, it is from .bat
-        if i < 2:
-            i = i + 1
+        i = i+1
+        if i == 1:
             continue
-        link_regex = r'^https://www\.youtube\.com/watch\?v=|https://youtu\.be/|c'
+        global link_regex
+        link_regex = r'^https://www\.youtube\.com/watch\?v=|https://youtu\.be/|-?c|clipboard'
         resolution_regex = "[0-9]+p|4k|2k|full hd|fhd|hd|only audio|audio"
         dir_regex = "[A-Z]:"
-        if re.search(link_regex, argument.lower()):
+        if re.match(link_regex, argument.lower()):
             link_argument = argument
-        elif re.search(resolution_regex, argument.lower()):
+        elif re.match(resolution_regex, argument.lower()):
             resolution_argument = argument
         else:
             if re.search(dir_regex, argument.lower()):
                 dir_argument = argument
             for key_regex in pickle_data:
-                if re.search(key_regex, argument.lower()):
+                if re.match(key_regex, argument.lower()):
+                    print('dir arg found, ', pickle_data[key_regex])
                     dir_argument = pickle_data[key_regex]
                     break
 
-    i = i + 1
+
     # Youtube video URL or clipboard arg
     if link_argument:
         is_youtube_prefix = bool(re.search(r'^https://www\.youtube\.com/watch\?v=|https://youtu\.be/', link_argument))
-        is_clipboard_flag = bool(re.search(r'c', link_argument))
+        is_clipboard_flag = bool(re.search(r'-?c|clipboard', link_argument))
         if is_youtube_prefix:
             user_url = link_argument
         elif is_clipboard_flag:
@@ -263,7 +270,7 @@ def main():
             user_url = f'https://www.youtube.com/watch?v={link_argument}'
     try:
         video = YouTube(user_url)
-        video.title
+        length = video.length
     except Exception as e:
         print(f'{print_red}Video URL invalid{print_reset}')
         print(f'URL:  {print_underline + user_url + print_reset}')
@@ -328,43 +335,42 @@ def main():
     print('\t')
 
     # Checking if user gave resolution arg
-    video_for_render = None
     if resolution_argument:
         user_resolution = resolution_argument
         is_user_resolution_set = True
     else:
         is_user_resolution_set = False
 
+    global video_for_render
+    video_for_render = None
     def set_video_for_render(resolution):
         if video.streams.filter(res=resolution):
-            global video_for_render
             video_for_render = video.streams.filter(res=resolution).first()
-            global is_resolution_valid
-            is_resolution_valid = True
-            return True
+            return video_for_render
+        return False
 
     # Seting video resolution, with shortcuts
-    is_resolution_valid = False
-    while is_resolution_valid == False:
-        if(not is_user_resolution_set):
-            user_resolution = input('Please select a resolution for render: \t')
-        if not set_video_for_render(user_resolution):
-            low_case_user_resolution = user_resolution.lower()
-            if low_case_user_resolution == '4k':
-                set_video_for_render('2160p')
-            if low_case_user_resolution == '2k':
-                set_video_for_render('1440p')
-            if low_case_user_resolution == 'full hd' or low_case_user_resolution == 'fhd':
-                set_video_for_render('1080p')
-            if low_case_user_resolution == 'hd':
-                set_video_for_render('720p')
-            if low_case_user_resolution == 'only audio' or low_case_user_resolution == 'audio':
-                video_for_render = 'no_video'
-                is_resolution_valid = True
-            if not video_for_render:
-                print_with_space(f'{print_red}Invalid resolution{print_reset}')
-                user_resolution = None
-                is_user_resolution_set = False
+    if(not is_user_resolution_set):
+        user_resolution = input('Please select a resolution for render: \t')
+    if not set_video_for_render(user_resolution):
+        print('resolution not valid, prolly shortcut')
+        low_case_user_resolution = user_resolution.lower()
+        if low_case_user_resolution == '4k':
+            video_for_render = set_video_for_render('2160p')
+        if low_case_user_resolution == '2k':
+            video_for_render = set_video_for_render('1440p')
+        if low_case_user_resolution == 'fullhd' or low_case_user_resolution == 'fhd':
+            video_for_render = set_video_for_render('1080p')
+        if low_case_user_resolution == 'hd':
+            video_for_render = set_video_for_render('720p')
+        if low_case_user_resolution == 'only audio' or low_case_user_resolution == 'audio':
+            video_for_render = 'no_video'
+        if not video_for_render:
+            print_with_space(f'{print_red}Invalid resolution{print_reset}')
+            user_resolution = None
+            is_user_resolution_set = False
+    else:
+        video_for_render = set_video_for_render(user_resolution)
 
     windows_temp_path = 'C:\\Windows\\Temp'
 
@@ -381,6 +387,18 @@ def main():
             video_destination = dir_argument
     else:
         video_destination = curr_directory
+
+    if not os.path.exists(video_destination):
+        print(print_red + "Directory doesn't exist" + print_reset)
+        print('Specified directory:    ', video_destination)
+        sys.exit(1)
+
+    # Check if ffmpeg installed, could install it if not
+    if which('ffmpeg') is None:
+        print(print_red + 'ffmpeg is not installed, please install it manually' + print_reset)
+        print(f'Be sure to add in to {print_purple}PATH{print_reset} environment variable')
+        print()
+        sys.exit(1)
 
     # only audio handling - skiping video download
     if not video_for_render == 'no_video':
@@ -400,6 +418,7 @@ def main():
     else:
         audio = video.streams.filter(only_audio=True).order_by('abr').last()
         audio.download(video_destination)
+        print()
         print(f'{print_bold}Audio{print_reset} processed {print_green}successfully{print_reset}')
         print_local_file_link(fr"{video_destination}\\{audio.default_filename}", f"{print_purple}Open your file{print_reset}")
         sys.exit(0)
@@ -408,6 +427,7 @@ def main():
     # Merging video and audio into final file
     ffmpeg = (
         FFmpeg()
+        .option('y')
         .input(f"{windows_temp_path.replace('\\', '/')}/dowy_youtube_video.mp4")
         .input(f'{windows_temp_path.replace('\\', '/')}/dowy_youtube_audio.opus')
         .output(
@@ -417,6 +437,7 @@ def main():
     )
 
     print(f'{print_yellow}Compiling started{print_reset}')
+    print('This may take a while depending on the length of the video')
     ffmpeg.execute()
     print(f'{print_green}Compiling finished{print_green}')
 
@@ -426,5 +447,3 @@ def main():
 
     print_with_space(f'{print_green}Video processed successfully{print_reset}')
     print_local_file_link(fr"{video_destination}\\{video_for_render.default_filename}.mp4", f"{print_purple}Open your file{print_reset}")
-
-main()
